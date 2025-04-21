@@ -8,11 +8,9 @@ public class CallbackImpl extends UnicastRemoteObject implements CallbackInterfa
     private String symbol = "";
     private boolean myTurn = false;
     
-    public CallbackImpl(String playerName,String symbol,boolean myTurn)throws RemoteException
+    public CallbackImpl(String playerName)throws RemoteException
     {
         this.playerName = playerName;
-        this.symbol = symbol;
-        this.myTurn = myTurn;
     }
 
     public void updateBoard(String[][] board) throws RemoteException {
