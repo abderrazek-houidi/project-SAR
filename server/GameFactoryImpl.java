@@ -1,24 +1,24 @@
-package server;
-
 import java.rmi.*;
 import java.rmi.server.*;
 import java.util.*;
 
 public class GameFactoryImpl extends UnicastRemoteObject implements GameFactoryInterface{
-    private List<Game> games = new ArrayList<>();
+    private List<GameImpl> games = new ArrayList<>();
     private int maxClients = 10;
 
     public GameFactoryImpl()throws RemoteException{}
 
-    public Game playGame(String playerName)throws RemoteException{
+    public synchronized GameImpl playGame(String playerName ,CallbackInterface playerCallback)throws RemoteException{
         if (games.size() * 2 >= maxClients) return null;
-        for (Game game : games) {
-            if (game.addPlayer(playerName)) {
+        for (GameImpl game : games) {
+            if (game.addPlayer(playerName,playerCallback)) {
+                System.out.println("Player " + playerName + " joined existing game");
                 return game;
             }
         }
-        Game newGame = new Game(playerName);
+        GameImpl newGame = new GameImpl(playerName,playerCallback);
         games.add(newGame);
+        System.out.println("Player " + playerName + " created new game");
         return newGame;
     }
 }

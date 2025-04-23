@@ -1,6 +1,4 @@
-package client;
-
-import java.rmi.RemoteException;
+import java.rmi.*;
 import java.rmi.server.*;
 
 public class CallbackImpl extends UnicastRemoteObject implements CallbackInterface{
@@ -8,8 +6,8 @@ public class CallbackImpl extends UnicastRemoteObject implements CallbackInterfa
     private String symbol = "";
     private boolean myTurn = false;
     
-    public CallbackImpl(String playerName)throws RemoteException
-    {
+    public CallbackImpl(String playerName)throws RemoteException{
+        super();
         this.playerName = playerName;
     }
 
