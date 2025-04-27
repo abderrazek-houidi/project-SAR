@@ -3,6 +3,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.rmi.registry.*;
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.swing.border.EmptyBorder;
 
 public class GameClientGUI extends JFrame {
@@ -17,14 +20,19 @@ public class GameClientGUI extends JFrame {
     private Color lightColor = new Color(250, 250, 250);  // Off-white
 
     public GameClientGUI() {
+        
         setUndecorated(true);
         setShape(new RoundRectangle2D.Double(0, 0, 600, 700, 30, 30));
         
         try {
             // Connect to registry
             Registry reg = LocateRegistry.getRegistry("localhost", 1099);
-            GameFactoryInterface factory = (GameFactoryInterface) reg.lookup("TicTacToe");
-
+            GameFactoryInterface factory = (GameFactoryInterface) reg.lookup("Fabrique Tic Tac Toe");
+            int connectedPlayers = factory.getConnectedPlayers();
+            if (connectedPlayers >= 10) {
+                System.out.println("Sorry, the server is full (10 players connected). Try again later.");
+                return; // Exit the client
+            }
             // Stylish player name input
             playerName = showMaterialInputDialog("Enter your player name:");
             if (playerName == null || playerName.trim().isEmpty()) {
@@ -66,28 +74,29 @@ public class GameClientGUI extends JFrame {
         titleLabel.setForeground(lightColor);
         titlePanel.add(titleLabel, BorderLayout.CENTER);
         
-        JButton closeButton = new JButton("a"); // Unicode ×
-        closeButton.setFont(new Font("Segoe UI", Font.PLAIN, 24));
-        closeButton.setContentAreaFilled(false);
-            closeButton.setBorderPainted(false);
-            closeButton.setForeground(lightColor);
-            closeButton.setFocusPainted(false);
-            closeButton.setPreferredSize(new Dimension(40, 30));
-            // Add action listener to close the window
-            closeButton.addActionListener(e -> System.exit(0));
-            // Add hover effect
-            closeButton.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    closeButton.setForeground(new Color(255, 83, 73)); // Light red on hover
-                }
-                
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    closeButton.setForeground(lightColor); // Back to original color
-                }
-            });
-            titlePanel.add(closeButton, BorderLayout.LINE_END);
+        JLabel closeButton = new JLabel("×", SwingConstants.CENTER);
+        closeButton.setFont(new Font("Dialog", Font.BOLD, 20)); // "Dialog" marche partout
+        closeButton.setForeground(lightColor);
+        closeButton.setPreferredSize(new Dimension(40, 40));
+        closeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        closeButton.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                System.exit(0);
+            }
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                closeButton.setForeground(new Color(255, 83, 73)); // Hover rouge clair
+            }
+            @Override
+            public void mouseExited(MouseEvent e) {
+                closeButton.setForeground(lightColor); // Retour normal
+            }
+        });
+
+        titlePanel.add(closeButton, BorderLayout.LINE_END);
+
         gradientPanel.add(titlePanel, BorderLayout.NORTH);
 
         // Player info panel
@@ -114,8 +123,7 @@ public class GameClientGUI extends JFrame {
         boardPanel.setBorder(new EmptyBorder(20, 50, 50, 50));
 
         Font buttonFont = new Font("Segoe UI", Font.BOLD, 70);
-        Color xColor = new Color(244, 67, 54);    // Red
-        Color oColor = new Color(33, 150, 243);   // Blue
+        
 
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
@@ -191,10 +199,23 @@ public class GameClientGUI extends JFrame {
             if (game.isMyTurn(playerName)) {
                 if (game.isValidMove(row, col)) {
                     game.MakeMove(playerName, row, col);
-                    buttons[row][col].setText(game.getPlayers(0).equals(playerName) ? "X" : "O");
-                    buttons[row][col].setForeground(game.getPlayers(0).equals(playerName) ? 
-                          new Color(244, 67, 54) : new Color(33, 150, 243));
+                    
+                    // 1. Explicitly set opaque properties
+                    buttons[row][col].setOpaque(true);
+                    buttons[row][col].setContentAreaFilled(false);
+                    
+                    // 2. Force color application
+                    boolean isPlayerX = game.getPlayers(0).equals(playerName);
+                    Color xColor = new Color(244, 67, 54);    // Red
+                    Color oColor = new Color(33, 150, 243);   // Blue
+                    
+                    buttons[row][col].setText(isPlayerX ? "X" : "O");
+                    buttons[row][col].setForeground(isPlayerX ? xColor : oColor);
+                    
+                    // 3. Ensure UI updates
                     buttons[row][col].setEnabled(false);
+                    buttons[row][col].repaint();
+            SwingUtilities.updateComponentTreeUI(buttons[row][col]);
                 }
             }
         } catch (Exception e) {
@@ -202,42 +223,114 @@ public class GameClientGUI extends JFrame {
         }
     }
 
-    private void refreshBoard() {
-        try {
-            if (game == null) {
-                System.err.println("Game instance is null!");
-                return;
+  private void refreshBoard() {
+    try {
+        if (game == null) return;
+        
+        // Update board display
+        String[][] board = game.getBoard();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                buttons[i][j].setText(board[i][j]);
+                buttons[i][j].setEnabled(board[i][j].isEmpty());
+                
+                // Set consistent colors
+                if (board[i][j].equals("X")) {
+                    buttons[i][j].setForeground(new Color(244, 67, 54)); // Red
+                } else if (board[i][j].equals("O")) {
+                    buttons[i][j].setForeground(new Color(33, 150, 243)); // Blue
+                }
             }
-            String[][] board = game.getBoard();
-            for (int i = 0; i < 3; i++) {
+        }
+
+        if (game.isGameOver()) {
+            String winner = game.getWinner();
+            String message;
+            
+            // Improved win/draw detection
+            if (hasWinningLine(board, "X")) {
+                message = game.getPlayers(0).equals(playerName) ? "You won!" : "You lost!";
+                highlightWinningLine(getWinningLine(board, "X"));
+            } else if (hasWinningLine(board, "O")) {
+                message = game.getPlayers(1).equals(playerName) ? "You won!" : "You lost!";
+                highlightWinningLine(getWinningLine(board, "O"));
+            } else {
+                message = "Game ended in a draw!";
+            }
+            
+            statusLabel.setText(message);
+            showMaterialMessageDialog(message);
+            disableAllButtons();
+        } else {
+            statusLabel.setText(game.isMyTurn(playerName) ? 
+                "Your turn - Make a move!" : "Waiting for opponent...");
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        showMaterialMessageDialog("Error refreshing board: " + e.getMessage());
+    }
+}
+
+            // Helper methods
+            private boolean hasWinningLine(String[][] board, String symbol) {
+                // Check rows and columns
+                for (int i = 0; i < 3; i++) {
+                    if (board[i][0].equals(symbol) && board[i][1].equals(symbol) && board[i][2].equals(symbol)) 
+                        return true;
+                    if (board[0][i].equals(symbol) && board[1][i].equals(symbol) && board[2][i].equals(symbol)) 
+                        return true;
+                }
+                // Check diagonals
+                return (board[0][0].equals(symbol) && board[1][1].equals(symbol) && board[2][2].equals(symbol)) ||
+                    (board[0][2].equals(symbol) && board[1][1].equals(symbol) && board[2][0].equals(symbol));
+            }
+
+            private List<Point> getWinningLine(String[][] board, String symbol) {
+                List<Point> line = new ArrayList<>();
+                // Check rows
+                for (int i = 0; i < 3; i++) {
+                    if (board[i][0].equals(symbol) && board[i][1].equals(symbol) && board[i][2].equals(symbol)) {
+                        for (int j = 0; j < 3; j++) line.add(new Point(i, j));
+                        return line;
+                    }
+                }
+                // Check columns
                 for (int j = 0; j < 3; j++) {
-                    buttons[i][j].setText(board[i][j]);
-                    buttons[i][j].setEnabled(board[i][j].isEmpty());
+                    if (board[0][j].equals(symbol) && board[1][j].equals(symbol) && board[2][j].equals(symbol)) {
+                        for (int i = 0; i < 3; i++) line.add(new Point(i, j));
+                        return line;
+                    }
+                }
+                // Check diagonals
+                if (board[0][0].equals(symbol) && board[1][1].equals(symbol) && board[2][2].equals(symbol)) {
+                    line.add(new Point(0, 0));
+                    line.add(new Point(1, 1));
+                    line.add(new Point(2, 2));
+                    return line;
+                }
+                if (board[0][2].equals(symbol) && board[1][1].equals(symbol) && board[2][0].equals(symbol)) {
+                    line.add(new Point(0, 2));
+                    line.add(new Point(1, 1));
+                    line.add(new Point(2, 0));
+                    return line;
+                }
+                return line;
+            }
+
+            private void highlightWinningLine(List<Point> line) {
+                for (Point p : line) {
+                    buttons[p.x][p.y].setBackground(new Color(76, 175, 80, 100)); // Green with transparency
+                    buttons[p.x][p.y].setOpaque(true);
                 }
             }
 
-            if (game.isGameOver()) {
-                String winner = game.getWinner();
-                String message = winner.equals("Draw") ? 
-                    "Game ended in a draw!" : 
-                    winner.equals(playerName) ? "You won!" : "You lost!";
-                
-                statusLabel.setText(message);
-                showMaterialMessageDialog(message);
-                
+            private void disableAllButtons() {
                 for (JButton[] row : buttons) {
                     for (JButton button : row) {
                         button.setEnabled(false);
                     }
                 }
-            } else {
-                statusLabel.setText(game.isMyTurn(playerName) ? 
-                    "Your turn - Make a move!" : "Waiting for opponent...");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     // Material Design input dialog
     private String showMaterialInputDialog(String message) {

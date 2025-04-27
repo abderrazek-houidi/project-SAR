@@ -8,7 +8,10 @@ public interface GameInterface extends Remote{
     public Boolean MakeMove(String playerName, int row, int col)throws RemoteException;
     public Boolean isMyTurn(String playerName)throws RemoteException;
     public String[] getPlayers()throws RemoteException;
-    //ssdq
     public String getPlayers(int i)throws RemoteException;
+    public String[][] getBoard() throws RemoteException;
+    public boolean isGameOver() throws RemoteException;
+    public String getWinner() throws RemoteException;
+
 
 }
