@@ -3,10 +3,15 @@ import java.rmi.registry.*;
 import java.util.*;
 
 public class GameClient{
-    public static void main(String args[]){
+    public GameClient (){
         try {
             Registry reg = LocateRegistry.getRegistry("localhost",1099);
-            GameFactoryInterface factory = (GameFactoryInterface)reg.lookup("TicTacToe");
+            GameFactoryInterface factory = (GameFactoryInterface)reg.lookup("Fabrique Tic Tac Toe");
+            int connectedPlayers = factory.getConnectedPlayers();
+            if (connectedPlayers >= 10) {
+                System.out.println("Sorry, the server is full (10 players connected). Try again later.");
+                return; // Exit the client
+            }
             Scanner scanner = new Scanner(System.in);
             String playerName;
             System.out.print("give your player name: ");
