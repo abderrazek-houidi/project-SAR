@@ -9,4 +9,9 @@ public interface GameInterface extends Remote{
     public Boolean isMyTurn(String playerName)throws RemoteException;
     public String[] getPlayers()throws RemoteException;
     public String getPlayers(int i)throws RemoteException;
+    String[][] getBoard() throws RemoteException;
+    boolean isGameOver() throws RemoteException;
+    String getWinner() throws RemoteException;
+
+
 }
