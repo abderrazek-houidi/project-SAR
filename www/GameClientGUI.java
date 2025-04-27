@@ -395,7 +395,7 @@ public class GameClientGUI extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
+    public GameClientGUI(String[] args) {
         SwingUtilities.invokeLater(() -> {
             GameClientGUI client = new GameClientGUI();
             client.setVisible(true);
