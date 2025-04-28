@@ -1,11 +1,10 @@
+import javax.swing.*;
 import java.rmi.*;
 import java.rmi.server.*;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 
 public class CallbackImpl extends UnicastRemoteObject implements CallbackInterface {
-    private String playerName = "";
+    private String playerName;
     private String symbol = "";
     private boolean myTurn = false;
     private GameClientGUI client;
@@ -16,58 +15,69 @@ public class CallbackImpl extends UnicastRemoteObject implements CallbackInterfa
         this.client = client;
     }
 
+    @Override
     public void updateBoard(String[][] board) throws RemoteException {
-        client.updateBoard();
-        System.out.println("Current board:");
-        for (String[] row : board) {
-            for (String cell : row) {
-                System.out.print(cell.isEmpty() ? "-" : cell);
-                System.out.print(" ");
+        SwingUtilities.invokeLater(() -> {
+            try {
+                client.updateBoard();
+            } catch (RemoteException e) {
+                client.showMaterialDialog("Error updating board: " + e.getMessage(), "Update Error", true);
             }
-            System.out.println();
-        }
+        });
     }
 
+    @Override
     public void notifyTurn(boolean isYourTurn) throws RemoteException {
         this.myTurn = isYourTurn;
-        System.out.println(isYourTurn ? "Your turn!" : "Opponent's turn...");
+        SwingUtilities.invokeLater(() -> {
+            try {
+                client.updateBoard();
+            } catch (RemoteException e) {
+                client.showMaterialDialog("Error updating turn: " + e.getMessage(), "Turn Error", true);
+            }
+        });
     }
 
+    @Override
     public void notifyError(String message) throws RemoteException {
-        System.out.println("Error: " + message);
+        SwingUtilities.invokeLater(() -> {
+            client.showMaterialDialog("Error: " + message, "Error", true);
+        });
     }
 
+    @Override
     public void notifyGameResult(String result) throws RemoteException {
-        System.out.println("Game Over: " + result);
+        SwingUtilities.invokeLater(() -> {
+            client.handleGameEnd(result);
+        });
     }
 
+    @Override
     public boolean restartMessage() throws RemoteException {
-        final boolean[] result = new boolean[1]; // Array to store the dialog result
-
-        // Run the dialog on the EDT and wait for the result
+        final boolean[] result = new boolean[1];
         try {
             SwingUtilities.invokeAndWait(() -> {
                 int response = showRestartDialog(
                     "<html><center><h3>The other player wants a rematch!</h3></center></html>",
-                    "Game Over", true
+                    "Game Over",
+                    true
                 );
                 result[0] = response == JOptionPane.YES_OPTION;
+                if (result[0]) {
+                    // Remove the restart button after agreeing to restart
+                    client.removeRestartButton();
+                }
             });
         } catch (InterruptedException | InvocationTargetException e) {
-            e.printStackTrace();
             throw new RemoteException("Error showing restart dialog", e);
         }
-
-        return result[0]; // Return true for Restart, false for Exit
+        return result[0];
     }
 
     private int showRestartDialog(String message, String title, boolean restartOption) {
-        // Define options for the dialog
-        Object[] options = restartOption ? new Object[] { "Restart", "Exit" } : new Object[] { "OK" };
-
-        // Show the dialog with no parent component (null)
+        Object[] options = restartOption ? new Object[]{"Restart", "Exit"} : new Object[]{"OK"};
         return JOptionPane.showOptionDialog(
-            null, // No parent component
+            client,
             message,
             title,
             JOptionPane.DEFAULT_OPTION,

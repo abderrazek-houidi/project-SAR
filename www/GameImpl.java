@@ -96,12 +96,13 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
             if (result.equals("X"))
                 winner=Players[0];
             else if(result.equals("O"))
-                winner=Players[0];
+                winner=Players[1];
             else 
                 winner="Draw";
-            String message = result.equals("Draw") ? "Draw" : result + " wins!";
-            playersCallback[0].notifyGameResult(message);
-            playersCallback[1].notifyGameResult(message);
+            playersCallback[0].updateBoard(board);
+            playersCallback[1].updateBoard(board);
+            playersCallback[0].notifyGameResult(winner);
+            playersCallback[1].notifyGameResult(winner);
         } else {
             currentPlayer = 1 - currentPlayer;
             notifyAllPlayers();
