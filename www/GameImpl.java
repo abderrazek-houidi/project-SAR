@@ -7,6 +7,7 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
     private String[] symbols = new String[2];
     private String[][] board = new String[3][3];
     private int movesMade = 0;
+    private int startingPlayer=0;
     private int currentPlayer = 0;
     private boolean gameEnded = false;
     private String winner = "";
@@ -92,7 +93,12 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
         
         if (!result.isEmpty()) {
             gameEnded = true;
-            winner = result;
+            if (result.equals("X"))
+                winner=Players[0];
+            else if(result.equals("O"))
+                winner=Players[0];
+            else 
+                winner="Draw";
             String message = result.equals("Draw") ? "Draw" : result + " wins!";
             playersCallback[0].notifyGameResult(message);
             playersCallback[1].notifyGameResult(message);
@@ -149,4 +155,26 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
             }
         }
     }
+    public void Restart(String playerName) throws RemoteException{
+        int Otherplayer=playerName.equals(Players[0]) ? 1 : 0 ;
+        boolean response=playersCallback[Otherplayer].restartMessage();
+        if (response){
+            this.reset();
+        }
+    }
+
+    private void reset() throws RemoteException {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                board[i][j] = "";
+            }
+        }
+        movesMade = 0;
+        startingPlayer = 1- startingPlayer;
+        currentPlayer = startingPlayer;
+        gameEnded = false;
+        winner = "";
+       notifyAllPlayers();
+    }
+
 }
