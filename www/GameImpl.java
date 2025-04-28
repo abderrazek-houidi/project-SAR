@@ -7,13 +7,13 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
     private String[] symbols = new String[2];
     private String[][] board = new String[3][3];
     private int movesMade = 0;
-    private int startingPlayer=0;
+    private int startingPlayer = 0;
     private int currentPlayer = 0;
     private boolean gameEnded = false;
     private String winner = "";
 
     public GameImpl(String playerName, CallbackInterface playerCallback) throws RemoteException {
-        super(); // Important for RMI
+        super();
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
                 board[i][j] = "";
@@ -23,12 +23,17 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
         playersCallback[0] = playerCallback;
         Players[1] = "";
         symbols[0] = "X";
-        symbols[1] = "O"; // Changed from "0" to "O" for clarity
+        symbols[1] = "O";
     }
 
     @Override
     public synchronized Boolean addPlayer(String playerName, CallbackInterface playerCallback) throws RemoteException {
-        if (Players[1] == null || Players[1].isEmpty()) {
+        if (Players[0] == null || Players[0].isEmpty()){
+            Players[0] = playerName;
+            playersCallback[0] = playerCallback;
+            return true;
+        }
+        else if (Players[1] == null || Players[1].isEmpty()) {
             Players[1] = playerName;
             playersCallback[1] = playerCallback;
             notifyAllPlayers();
@@ -52,34 +57,31 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
 
     @Override
     public synchronized String checkWinner() throws RemoteException {
-        // Check rows
         for (int i = 0; i < 3; i++) {
             if (!board[i][0].isEmpty() && board[i][0].equals(board[i][1]) && board[i][1].equals(board[i][2])) {
                 return board[i][0];
             }
         }
-        
-        // Check columns
+
         for (int j = 0; j < 3; j++) {
             if (!board[0][j].isEmpty() && board[0][j].equals(board[1][j]) && board[1][j].equals(board[2][j])) {
                 return board[0][j];
             }
         }
-        
-        // Check diagonals
+
         if (!board[0][0].isEmpty() && board[0][0].equals(board[1][1]) && board[1][1].equals(board[2][2])) {
             return board[0][0];
         }
         if (!board[0][2].isEmpty() && board[0][2].equals(board[1][1]) && board[1][1].equals(board[2][0])) {
             return board[0][2];
         }
-        
+
         return movesMade == 9 ? "Draw" : "";
     }
 
     @Override
     public synchronized Boolean MakeMove(String playerName, int row, int col) throws RemoteException {
-        if (gameEnded || !playerName.equals(Players[currentPlayer]) ){
+        if (gameEnded || !playerName.equals(Players[currentPlayer])) {
             return false;
         }
 
@@ -90,15 +92,15 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
 
         executeMove(row, col, symbols[currentPlayer]);
         String result = checkWinner();
-        
+
         if (!result.isEmpty()) {
             gameEnded = true;
             if (result.equals("X"))
-                winner=Players[0];
-            else if(result.equals("O"))
-                winner=Players[1];
-            else 
-                winner="Draw";
+                winner = Players[0];
+            else if (result.equals("O"))
+                winner = Players[1];
+            else
+                winner = "Draw";
             playersCallback[0].updateBoard(board);
             playersCallback[1].updateBoard(board);
             playersCallback[0].notifyGameResult(winner);
@@ -107,7 +109,7 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
             currentPlayer = 1 - currentPlayer;
             notifyAllPlayers();
         }
-        
+
         return true;
     }
 
@@ -148,19 +150,44 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
         return winner;
     }
 
-    private void notifyAllPlayers() throws RemoteException {
-        for (int i = 0; i < 2; i++) {
-            if (playersCallback[i] != null) {
-                playersCallback[i].updateBoard(getBoard());
-                playersCallback[i].notifyTurn(isMyTurn(Players[i]));
-            }
+    @Override
+    public synchronized void notifyPlayerDeclinedRestart(String playerName) throws RemoteException {
+        int opponentIndex = playerName.equals(Players[0]) ? 1 : 0;
+        if (playersCallback[opponentIndex] != null) {
+            playersCallback[opponentIndex].notifyOpponentLeft("Your opponent (" + playerName + ") has left the game or declined to restart.");
         }
+        int playerIndex = playerName.equals(Players[0]) ? 0 : 1;
+        if (playersCallback[playerIndex] != null) {
+            playersCallback[playerIndex].notifyOpponentLeft("The game has ended because you declined to restart or exited.");
+        }
+        Players[0] = "";
+        Players[1] = "";
+        playersCallback[0] = null;
+        playersCallback[1] = null;
+        reset();
+        
     }
-    public void Restart(String playerName) throws RemoteException{
-        int Otherplayer=playerName.equals(Players[0]) ? 1 : 0 ;
-        boolean response=playersCallback[Otherplayer].restartMessage();
-        if (response){
-            this.reset();
+
+    @Override
+    public synchronized void Restart(String playerName) throws RemoteException {
+        if (gameEnded) {
+            int otherPlayerIndex = playerName.equals(Players[0]) ? 1 : 0;
+            boolean response = playersCallback[otherPlayerIndex].restartMessage();
+            if (response) {
+                reset();
+            } else {
+                if (playersCallback[0] != null) {
+                    playersCallback[0].notifyOpponentLeft("The game has ended because the other player declined to restart.");
+                }
+                if (playersCallback[1] != null) {
+                    playersCallback[1].notifyOpponentLeft("The game has ended because you declined to restart.");
+                }
+                Players[0] = "";
+                Players[1] = "";
+                playersCallback[0] = null;
+                playersCallback[1] = null;
+                reset();
+            }
         }
     }
 
@@ -171,11 +198,19 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
             }
         }
         movesMade = 0;
-        startingPlayer = 1- startingPlayer;
+        startingPlayer = 1 - startingPlayer;
         currentPlayer = startingPlayer;
         gameEnded = false;
         winner = "";
-       notifyAllPlayers();
+        notifyAllPlayers();
     }
 
+    private void notifyAllPlayers() throws RemoteException {
+        for (int i = 0; i < 2; i++) {
+            if (playersCallback[i] != null) {
+                playersCallback[i].updateBoard(getBoard());
+                playersCallback[i].notifyTurn(isMyTurn(Players[i]));
+            }
+        }
+    }
 }

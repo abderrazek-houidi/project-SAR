@@ -6,4 +6,5 @@ public interface CallbackInterface extends Remote {
     public void notifyError(String message) throws RemoteException;
     public void notifyGameResult(String result) throws RemoteException;
     public boolean restartMessage() throws RemoteException;
+    public void notifyOpponentLeft(String message) throws RemoteException;
 }

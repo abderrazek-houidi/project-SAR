@@ -14,6 +14,11 @@ public class GameClientGUI extends JFrame {
     private JButton restartButton;
     private JPanel headerPanel;
     private CallbackImpl callback;
+    private JPanel mainPanel;
+    private CardLayout cardLayout;
+    private JPanel launcherPanel;
+    private JPanel gamePanel;
+    private JTextField nameField;
 
     private final Color PRIMARY_COLOR = Color.decode("#3F51B5");
     private final Color PRIMARY_DARK = Color.decode("#303F9F");
@@ -39,16 +44,76 @@ public class GameClientGUI extends JFrame {
 
     public GameClientGUI() {
         initializeGUI();
-        connectToServer();
+        showLauncher();
     }
 
     private void initializeGUI() {
         setTitle("Tic Tac Toe - RMI Client");
         setSize(500, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(BACKGROUND_COLOR);
         setLocationRelativeTo(null);
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (game == null || playerName == null) {
+                    System.exit(0);
+                } else {
+                    try {
+                        game.notifyPlayerDeclinedRestart(playerName);
+                    } catch (RemoteException ex) {
+                        showMaterialDialog("Error notifying server of exit: " + ex.getMessage(), "Exit Error", true);
+                    }
+                    // *** Redirection to launcher ***
+                    resetToInitialState();
+                }
+            }
+        });
+
+        // Main panel with CardLayout
+        cardLayout = new CardLayout();
+        mainPanel = new JPanel(cardLayout);
+        mainPanel.setBackground(BACKGROUND_COLOR);
+        add(mainPanel, BorderLayout.CENTER);
+
+        // Launcher panel
+        launcherPanel = new JPanel();
+        launcherPanel.setBackground(BACKGROUND_COLOR);
+        launcherPanel.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel nameLabel = new JLabel("Enter your player name:");
+        nameLabel.setFont(STATUS_FONT);
+        nameLabel.setForeground(TEXT_PRIMARY);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        launcherPanel.add(nameLabel, gbc);
+
+        nameField = new JTextField(20);
+        nameField.setFont(STATUS_FONT);
+        nameField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, TEXT_SECONDARY),
+            BorderFactory.createEmptyBorder(0, 0, 5, 0)
+        ));
+        gbc.gridy = 1;
+        launcherPanel.add(nameField, gbc);
+
+        JButton startButton = new JButton("Start Game");
+        startButton.setFont(STATUS_FONT);
+        startButton.setBackground(PRIMARY_COLOR);
+        startButton.setForeground(Color.WHITE);
+        startButton.setFocusPainted(false);
+        startButton.addActionListener(e -> startGame());
+        gbc.gridy = 2;
+        launcherPanel.add(startButton, gbc);
+
+        // Game panel
+        gamePanel = new JPanel(new BorderLayout(10, 10));
+        gamePanel.setBackground(BACKGROUND_COLOR);
 
         headerPanel = new JPanel();
         headerPanel.setBackground(PRIMARY_COLOR);
@@ -69,7 +134,7 @@ public class GameClientGUI extends JFrame {
         restartButton.setFocusPainted(false);
         restartButton.addActionListener(e -> requestRestart());
 
-        add(headerPanel, BorderLayout.NORTH);
+        gamePanel.add(headerPanel, BorderLayout.NORTH);
 
         boardPanel = new JPanel(new GridLayout(3, 3, 8, 8));
         boardPanel.setBackground(BACKGROUND_COLOR);
@@ -97,7 +162,7 @@ public class GameClientGUI extends JFrame {
                 boardPanel.add(buttons[i][j]);
             }
         }
-        add(cardPanel, BorderLayout.CENTER);
+        gamePanel.add(cardPanel, BorderLayout.CENTER);
 
         statusLabel = new JLabel("Connecting to server...", SwingConstants.CENTER);
         statusLabel.setFont(STATUS_FONT);
@@ -106,7 +171,11 @@ public class GameClientGUI extends JFrame {
             new MatteBorder(1, 0, 0, 0, new Color(0, 0, 0, 10)),
             new EmptyBorder(15, 10, 15, 10)
         ));
-        add(statusLabel, BorderLayout.SOUTH);
+        gamePanel.add(statusLabel, BorderLayout.SOUTH);
+
+        // Add panels to CardLayout
+        mainPanel.add(launcherPanel, "Launcher");
+        mainPanel.add(gamePanel, "Game");
     }
 
     private JButton createMaterialButton() {
@@ -143,30 +212,26 @@ public class GameClientGUI extends JFrame {
         return button;
     }
 
+    private void showLauncher() {
+        cardLayout.show(mainPanel, "Launcher");
+        nameField.setText("");
+        nameField.requestFocus();
+    }
+
+    private void startGame() {
+        playerName = nameField.getText().trim();
+        if (playerName.isEmpty()) {
+            showMaterialDialog("Player name cannot be empty!", "Invalid Name", true);
+            return;
+        }
+        connectToServer();
+    }
+
     private void connectToServer() {
         new Thread(() -> {
             try {
                 Registry reg = LocateRegistry.getRegistry("localhost", 1099);
                 GameFactoryInterface factory = (GameFactoryInterface) reg.lookup("Fabrique Tic Tac Toe");
-
-                int connectedPlayers = factory.getConnectedPlayers();
-                if (connectedPlayers >= 10) {
-                    SwingUtilities.invokeLater(() -> {
-                        showMaterialDialog("Server is full (10 players connected). Try again later.", "Server Full", true);
-                        dispose();
-                    });
-                    return;
-                }
-
-                String name = showMaterialInputDialog("Enter your player name:", "Player Name");
-                if (name == null || name.trim().isEmpty()) {
-                    SwingUtilities.invokeLater(() -> {
-                        showMaterialDialog("Player name cannot be empty!", "Invalid Name", true);
-                        dispose();
-                    });
-                    return;
-                }
-                playerName = name.trim();
 
                 callback = new CallbackImpl(playerName, this);
                 game = factory.playGame(playerName, callback);
@@ -174,6 +239,7 @@ public class GameClientGUI extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     statusLabel.setText("Waiting for game to start...");
                     statusLabel.setForeground(TEXT_SECONDARY);
+                    cardLayout.show(mainPanel, "Game");
                     try {
                         updateBoard();
                     } catch (RemoteException e) {
@@ -184,63 +250,19 @@ public class GameClientGUI extends JFrame {
             } catch (ConnectException ce) {
                 SwingUtilities.invokeLater(() -> {
                     showMaterialDialog("Could not connect to the server. Ensure it is running.", "Connection Error", true);
-                    dispose();
+                    // *** Redirection to launcher ***
+                    resetToInitialState();
                 });
                 ce.printStackTrace();
             } catch (NotBoundException | RemoteException e) {
                 SwingUtilities.invokeLater(() -> {
                     showMaterialDialog("Error looking up remote object: " + e.getMessage(), "RMI Error", true);
-                    dispose();
+                    // *** Redirection to launcher ***
+                    resetToInitialState();
                 });
                 e.printStackTrace();
             }
         }).start();
-    }
-
-    private String showMaterialInputDialog(String message, String title) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        JLabel label = new JLabel(message);
-        label.setFont(STATUS_FONT);
-        label.setForeground(TEXT_PRIMARY);
-
-        JTextField textField = new JTextField(20);
-        textField.setFont(STATUS_FONT);
-        textField.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, TEXT_SECONDARY),
-            BorderFactory.createEmptyBorder(0, 0, 5, 0)
-        ));
-
-        panel.add(label, BorderLayout.NORTH);
-        panel.add(textField, BorderLayout.CENTER);
-
-        int result = JOptionPane.showOptionDialog(
-            this,
-            panel,
-            title,
-            JOptionPane.OK_CANCEL_OPTION,
-            JOptionPane.PLAIN_MESSAGE,
-            null,
-            null,
-            null
-        );
-
-        return result == JOptionPane.OK_OPTION ? textField.getText() : null;
-    }
-
-    public int showRestartDialog(String message, String title, boolean restartOption) {
-        Object[] options = restartOption ? new Object[]{"Restart", "Exit"} : new Object[]{"OK"};
-        return JOptionPane.showOptionDialog(
-            this,
-            message,
-            title,
-            JOptionPane.DEFAULT_OPTION,
-            JOptionPane.INFORMATION_MESSAGE,
-            null,
-            options,
-            options[0]
-        );
     }
 
     public void showMaterialDialog(String message, String title, boolean isError) {
@@ -322,7 +344,7 @@ public class GameClientGUI extends JFrame {
             try {
                 game.Restart(playerName);
                 SwingUtilities.invokeLater(() -> {
-                    removeRestartButton(); // Remove the button for the initiator
+                    removeRestartButton();
                     try {
                         updateBoard();
                     } catch (RemoteException e) {
@@ -332,6 +354,8 @@ public class GameClientGUI extends JFrame {
             } catch (RemoteException e) {
                 SwingUtilities.invokeLater(() -> {
                     showMaterialDialog("Error requesting restart: " + e.getMessage(), "Restart Error", true);
+                    // *** Redirection to launcher ***
+                    resetToInitialState();
                 });
             }
         }).start();
@@ -341,6 +365,36 @@ public class GameClientGUI extends JFrame {
         headerPanel.remove(restartButton);
         headerPanel.revalidate();
         headerPanel.repaint();
+    }
+
+    public void resetToInitialState() {
+        SwingUtilities.invokeLater(() -> {
+            // *** Redirection to launcher ***
+            // Clear game state
+            game = null;
+            playerName = null;
+            callback = null;
+
+            // Clear board
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    buttons[i][j].setText("");
+                    buttons[i][j].setEnabled(true);
+                    buttons[i][j].setBackground(CARD_COLOR);
+                    buttons[i][j].setForeground(TEXT_PRIMARY);
+                }
+            }
+
+            // Reset status label
+            statusLabel.setText("Connecting to server...");
+            statusLabel.setForeground(TEXT_SECONDARY);
+
+            // Remove restart button
+            removeRestartButton();
+
+            // Show launcher panel
+            showLauncher();
+        });
     }
 
     public void updateBoard() throws RemoteException {
@@ -375,7 +429,6 @@ public class GameClientGUI extends JFrame {
             } catch (RemoteException e) {
                 statusLabel.setText("Error updating the board.");
                 statusLabel.setForeground(SECONDARY_COLOR);
-              
             }
         });
     }
@@ -385,6 +438,9 @@ public class GameClientGUI extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new GameClientGUI().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            GameClientGUI client = new GameClientGUI();
+            client.setVisible(true);
+        });
     }
 }

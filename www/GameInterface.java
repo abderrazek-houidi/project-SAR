@@ -13,6 +13,6 @@ public interface GameInterface extends Remote{
     public boolean isGameOver() throws RemoteException;
     public String getWinner() throws RemoteException;
     public void Restart(String playerName) throws RemoteException;
-
+    public void notifyPlayerDeclinedRestart(String playerName) throws RemoteException;
 
 }

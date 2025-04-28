@@ -63,15 +63,32 @@ public class CallbackImpl extends UnicastRemoteObject implements CallbackInterfa
                     true
                 );
                 result[0] = response == JOptionPane.YES_OPTION;
+                
                 if (result[0]) {
-                    // Remove the restart button after agreeing to restart
                     client.removeRestartButton();
+                } else {
+                    try {
+                        GameInterface game=client.getGame();
+                        System.out.println("game");
+                        game.notifyPlayerDeclinedRestart(playerName);
+                    } catch (RemoteException e) {
+                        client.showMaterialDialog("Error notifying server of restart refusal: " + e.getMessage(), "Error", true);
+                    }
                 }
             });
         } catch (InterruptedException | InvocationTargetException e) {
             throw new RemoteException("Error showing restart dialog", e);
         }
         return result[0];
+    }
+
+    @Override
+    public void notifyOpponentLeft(String message) throws RemoteException {
+        SwingUtilities.invokeLater(() -> {
+            client.showMaterialDialog(message, "Opponent Left", true);
+            // *** Redirection to launcher ***
+            client.resetToInitialState();
+        });
     }
 
     private int showRestartDialog(String message, String title, boolean restartOption) {
