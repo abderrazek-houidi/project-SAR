@@ -66,15 +66,7 @@ public class CallbackImpl extends UnicastRemoteObject implements CallbackInterfa
                 
                 if (result[0]) {
                     client.removeRestartButton();
-                } else {
-                    try {
-                        GameInterface game=client.getGame();
-                        System.out.println("game");
-                        game.notifyPlayerDeclinedRestart(playerName);
-                    } catch (RemoteException e) {
-                        client.showMaterialDialog("Error notifying server of restart refusal: " + e.getMessage(), "Error", true);
-                    }
-                }
+                } 
             });
         } catch (InterruptedException | InvocationTargetException e) {
             throw new RemoteException("Error showing restart dialog", e);

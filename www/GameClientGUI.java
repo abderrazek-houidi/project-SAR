@@ -43,8 +43,12 @@ public class GameClientGUI extends JFrame {
     private final Font BUTTON_FONT = new Font("Roboto", Font.BOLD, 60);
 
     public GameClientGUI() {
-        initializeGUI();
+        SwingUtilities.invokeLater(() -> {
+            initializeGUI();
         showLauncher();
+            this.setVisible(true);
+        });
+        
     }
 
     private void initializeGUI() {

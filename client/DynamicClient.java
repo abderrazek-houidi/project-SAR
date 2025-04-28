@@ -4,7 +4,7 @@ import java.util.Properties;
 
 public class DynamicClient {
     
-    public DynamicClient (String[] args) throws Exception{
+    public DynamicClient () throws Exception{
         Properties p = System.getProperties();
         String url = p.getProperty("java.rmi.server.codebase");
 
@@ -12,14 +12,14 @@ public class DynamicClient {
         System.out.println("Class loaded: " + ClasseClient.getName());
         Constructor<?> [] C = ClasseClient.getConstructors();
         
-        C[0].newInstance(new Object[]{args});
+        C[0].newInstance(new Object[]{});
     }
 
 
-    public static void main(String [] args) {
+    public static void main(String[] args) {
         System.setSecurityManager(new SecurityManager());
         try {
-            new DynamicClient(args);
+            new DynamicClient();
         }catch (Exception e){
             System.out.println(e.toString());
         }
