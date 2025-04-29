@@ -5,7 +5,6 @@ import java.lang.reflect.InvocationTargetException;
 
 public class CallbackImpl extends UnicastRemoteObject implements CallbackInterface {
     private String playerName;
-    private String symbol = "";
     private boolean myTurn = false;
     private GameClientGUI client;
 
