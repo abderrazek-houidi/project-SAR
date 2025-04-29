@@ -4,7 +4,7 @@ cd ../server
 javac GameServer.java
 cd ../www
 javac *.java
-rmic CallbackImpl
-rmic GameFactoryImpl
-rmic GameImpl
+rmic "-v1.1" CallbackImpl
+rmic "-v1.1" GameFactoryImpl
+rmic "-v1.1" GameImpl
 cp ./* C:/xampp/htdocs/TicTacToe

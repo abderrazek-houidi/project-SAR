@@ -33,7 +33,7 @@ public class GameImpl extends UnicastRemoteObject implements GameInterface {
             playersCallback[0] = playerCallback;
             return true;
         }
-        else if (Players[1] == null || Players[1].isEmpty()) {
+        else if ((Players[1] == null || Players[1].isEmpty()) && !Players[0].equals(playerName)) {
             Players[1] = playerName;
             playersCallback[1] = playerCallback;
             notifyAllPlayers();
